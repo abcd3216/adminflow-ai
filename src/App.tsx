@@ -22,7 +22,7 @@ const navItems: { id: View; label: string; detail: string; icon: typeof LayoutDa
 const demoSteps = [
   { title: '從一場行政會議開始', text: '載入每月行政營運會議逐字稿，系統會整理摘要、決議與負責人。', view: 'meeting' as View, action: '前往會議紀錄' },
   { title: '把支出資料變成洞察', text: '載入 CSV 示範資料，自動辨識欄位、統計分類並找出異常支出。', view: 'report' as View, action: '前往 Excel 報表' },
-  { title: '產出可交付的 Office 成果', text: '將會議紀錄下載為 Word／PowerPoint，報表下載為 Excel／PowerPoint。', view: 'meeting' as View, action: '查看匯出功能' },
+  { title: '產出可交付的 Office 成果', text: '將會議紀錄下載為 Word，報表下載為 Excel／PowerPoint。', view: 'meeting' as View, action: '查看匯出功能' },
   { title: '完成歸檔與面試展示', text: '確認結果後儲存至文件中心，可搜尋、下載 Markdown 或列印成 PDF。', view: 'documents' as View, action: '前往文件中心' },
 ]
 
