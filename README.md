@@ -16,7 +16,6 @@
 
 ## 展示亮點
 
-- **60 秒引導式 Demo**：讓面試官快速理解完整行政工作流。
 - **會議紀錄整理**：支援貼上文字、載入 `.docx`／`.txt`，產生摘要、決議、待辦、負責人與截止日。
 - **Email／公文助手**：依情境、用途與語氣產生正式內容，並可開啟 Gmail 撰寫畫面。
 - **Excel／CSV 報表**：自動辨識欄位、計算 KPI、分類圖表、資料品質與高額支出異常。
@@ -71,7 +70,7 @@ npm run preview
 
 ## 建議展示流程
 
-1. 在首頁按「開始 60 秒導覽」。
+1. 從工作總覽簡介會議、Email、報表、SOP 與文件中心等模組。
 2. 進入會議紀錄，載入 `test-data/random-staff-meeting-notes.docx`，產生摘要與待辦。
 3. 進入 Excel 報表，載入示範 CSV，展示欄位辨識、圖表與異常。
 4. 下載 Word、Excel 或 PowerPoint 等對應成果。
@@ -119,7 +118,7 @@ src/
   data/             每月行政營運會議示範資料
   services/         Mock / Gemini-ready AI provider
   utils/            報表分析、Office 匯出、本機儲存
-  App.tsx           導覽、60 秒 Demo 與應用程式外殼
+  App.tsx           側邊導覽與應用程式外殼
   styles.css        商務藍灰設計系統與響應式樣式
 server/             Gemini API 代理
 scripts/            本機前後端啟動腳本
