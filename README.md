@@ -14,7 +14,7 @@
 
 > 這是我做的 AdminFlow AI 智慧行政工作站。我觀察到行政工作常常不是缺少資料，而是資料散落在會議筆記、Word、Email 和 Excel 裡，整理成主管能直接看的成果很花時間。所以我把幾個常見流程整合成一個工作站：例如載入一份臨時會議紀錄後，系統會整理摘要、決議、負責人和期限；支出表也能自動產生分類與異常分析。這個作品除了 AI 功能，也特別處理了 API key 安全、Office 檔案匯入匯出、資料保存。
 
-## 展示亮點
+## 工具特色
 
 - **會議紀錄整理**：支援貼上文字、載入 `.docx`／`.txt`，產生摘要、決議、待辦、負責人與截止日。
 - **Email／公文助手**：依情境、用途與語氣產生正式內容，並可開啟 Gmail 撰寫畫面。
@@ -68,14 +68,6 @@ npm run build
 npm run preview
 ```
 
-## 建議展示流程
-
-1. 從工作總覽簡介會議、Email、報表、SOP 與文件中心等模組。
-2. 進入會議紀錄，載入 `test-data/random-staff-meeting-notes.docx`，產生摘要與待辦。
-3. 進入 Excel 報表，載入示範 CSV，展示欄位辨識、圖表與異常。
-4. 下載 Word、Excel 或 PowerPoint 等對應成果。
-5. 將結果存入文件中心，展示搜尋、Markdown 與列印 PDF。
-
 ## GitHub Pages
 
 Repository 已包含 `.github/workflows/deploy.yml`。推送至 `main` 後：
@@ -106,7 +98,7 @@ GitHub Pages 是靜態展示環境，不會保存 Gemini API key，也不會啟�
 
 - 公開展示版的檔案與文字在目前瀏覽器處理。
 - 展示版文件與草稿保存在 `localStorage`。
-- 可在文件中心按「清除全部」刪除 AdminFlow 的本機資料。
+- 可在文件中心按「清除全部」刪除 AdminFlow 的資料。
 - 清除瀏覽器資料也會移除文件中心，重要成果請下載備份。
 - 正式版本可依公司需求改接內部 API、權限管理、企業雲端儲存與備份政策。
 
