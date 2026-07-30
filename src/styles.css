@@ -152,6 +152,8 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 18px
 .audio-progress-value { color: var(--teal) !important; font-weight: 700; }
 .audio-progress { height: 5px; margin-top: 10px; overflow: hidden; border-radius: 5px; background: #dfecea; }
 .audio-progress span { display: block; height: 100%; border-radius: inherit; background: var(--teal); transition: width 300ms ease; }
+.audio-processing-status { display: flex; align-items: center; gap: 8px; padding: 11px 12px; margin: -3px 0 10px; border: 1px solid #dfe9e8; border-radius: 9px; color: var(--teal); background: #f7fbfa; font-size: 12px; }
+.audio-privacy-note { margin: -2px 0 14px; color: #7a8c99; font-size: 11px; }
 .classification-review { display: none; padding: 18px 21px; }
 .classification-review .panel-heading { margin-bottom: 8px; }
 .classification-review > p { margin: 0 0 12px; color: #718295; font-size: 11px; line-height: 1.6; }

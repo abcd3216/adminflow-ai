@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, CheckCircle2, ClipboardList, Download, FileAudio, FileText, Save, Sparkles, Upload } from 'lucide-react'
+import { CalendarDays, CheckCircle2, ClipboardList, Download, FileText, LoaderCircle, Save, Sparkles, Upload } from 'lucide-react'
 import { demoTranscript } from '../data/demoData'
 import { aiService } from '../services/aiService'
+import { transcribeMeetingAudio } from '../services/geminiClient'
 import type { MeetingResult } from '../types'
 import { exportMeetingDocx } from '../utils/export'
 import { saveDocument, saveDraft, useDraft } from '../utils/storage'
@@ -9,14 +10,35 @@ import { Button, EmptyState, Field, MockBadge, PageHeader, PrivacyNote } from '.
 
 const MAX_AUDIO_SIZE = 100 * 1024 * 1024
 const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024
-const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-wav', 'audio/wave']
+const AUDIO_MIME_BY_EXTENSION: Record<string, string> = {
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+  m4a: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
+}
+const AUDIO_TYPES = new Set([
+  'audio/aac',
+  'audio/flac',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/ogg',
+  'audio/wav',
+  'audio/wave',
+  'audio/x-wav',
+])
 
 type UploadState = {
   kind: 'audio' | 'document'
   name: string
   size: number
-  progress: number
-  status: 'uploading' | 'transcribing' | 'reading' | 'done'
+  status: 'processing' | 'reading' | 'done'
+}
+
+type AudioMeetingResponse = {
+  transcript: string
+  meeting: MeetingResult
 }
 
 export function MeetingWorkspace({ notify }: { notify: (message: string) => void }) {
@@ -35,27 +57,33 @@ export function MeetingWorkspace({ notify }: { notify: (message: string) => void
     finally { setLoading(false) }
   }
 
-  const handleAudioUpload = (file?: File) => {
+  const handleAudioUpload = async (file?: File) => {
     if (!file) return
-    const extension = file.name.split('.').pop()?.toLowerCase()
-    if (!AUDIO_TYPES.includes(file.type) && !['mp3', 'm4a', 'wav'].includes(extension || '')) return notify('請上傳 MP3、M4A 或 WAV 音訊檔')
+    const extension = file.name.split('.').pop()?.toLowerCase() || ''
+    const mimeType = AUDIO_TYPES.has(file.type) ? file.type : AUDIO_MIME_BY_EXTENSION[extension]
+    if (!mimeType) return notify('請上傳 MP3、WAV、M4A／AAC、OGG 或 FLAC 錄音檔')
     if (file.size > MAX_AUDIO_SIZE) return notify('音訊檔案不可超過 100MB')
 
-    setUpload({ kind: 'audio', name: file.name, size: file.size, progress: 8, status: 'uploading' })
-    window.setTimeout(() => {
-      setUpload((current) => current ? { ...current, progress: 65, status: 'transcribing' } : current)
-      window.setTimeout(async () => {
-        const generatedTranscript = `錄音檔案：${file.name}\n\n（轉錄內容已完成，請確認內容後再儲存。）`
-        setTranscript(generatedTranscript)
-        setUpload((current) => current ? { ...current, progress: 100, status: 'done' } : current)
-        await generate(generatedTranscript)
-      }, 900)
-    }, 650)
+    setLoading(true)
+    setResult(null)
+    setUpload({ kind: 'audio', name: file.name, size: file.size, status: 'processing' })
+    try {
+      const generated = await transcribeMeetingAudio<AudioMeetingResponse>(file, mimeType)
+      if (!generated.transcript?.trim() || !generated.meeting) throw new Error('Gemini 未回傳完整的轉錄結果')
+      setTranscript(generated.transcript.trim())
+      setResult(generated.meeting)
+      notify('錄音已完成轉錄與會議整理')
+    } catch (error) {
+      notify(error instanceof Error ? `錄音處理失敗：${error.message}` : '錄音處理失敗，請稍後再試')
+    } finally {
+      setUpload(null)
+      setLoading(false)
+    }
   }
 
   const handleDocumentUpload = async (file: File, extension: string) => {
     if (file.size > MAX_DOCUMENT_SIZE) return notify('Word／文字檔案不可超過 20MB')
-    setUpload({ kind: 'document', name: file.name, size: file.size, progress: 30, status: 'reading' })
+    setUpload({ kind: 'document', name: file.name, size: file.size, status: 'reading' })
 
     try {
       let rawText: string
@@ -70,7 +98,7 @@ export function MeetingWorkspace({ notify }: { notify: (message: string) => void
 
       setTranscript(cleanedText)
       setResult(null)
-      setUpload({ kind: 'document', name: file.name, size: file.size, progress: 100, status: 'done' })
+      setUpload({ kind: 'document', name: file.name, size: file.size, status: 'done' })
       notify(`已載入 ${file.name}，請確認內容後再整理`)
     } catch {
       setUpload(null)
@@ -83,7 +111,7 @@ export function MeetingWorkspace({ notify }: { notify: (message: string) => void
     const extension = file.name.split('.').pop()?.toLowerCase() || ''
     if (extension === 'doc') return notify('不支援舊版 DOC，請先在 Word 另存為 DOCX')
     if (extension === 'docx' || extension === 'txt') return handleDocumentUpload(file, extension)
-    handleAudioUpload(file)
+    await handleAudioUpload(file)
   }
 
   const save = () => {
@@ -96,11 +124,13 @@ export function MeetingWorkspace({ notify }: { notify: (message: string) => void
     <PageHeader eyebrow="MEETING NOTES" title="AI 會議紀錄整理" description="貼上逐字稿、載入 Word／文字檔或上傳錄音檔，自動整理摘要、決議、負責人與截止日。" actions={<MockBadge />} />
     <div className="workspace-grid">
       <section className="panel input-panel">
-        <div className="panel-heading"><div><span className="step-label">輸入</span><h2>會議逐字稿</h2></div><div className="meeting-input-actions"><Button variant="ghost" onClick={() => setTranscript(demoTranscript)}>載入示範</Button><button className="icon-button" title="載入 Word、文字或錄音檔" aria-label="載入 Word、文字或錄音檔" onClick={() => fileInputRef.current?.click()}><Upload size={17} /></button><input ref={fileInputRef} type="file" hidden accept=".docx,.doc,.txt,.mp3,.m4a,.wav,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/mpeg,audio/mp4,audio/wav" onChange={(event) => { void handleFileUpload(event.target.files?.[0]); event.currentTarget.value = '' }} /></div></div>
+        <div className="panel-heading"><div><span className="step-label">輸入</span><h2>會議逐字稿</h2></div><div className="meeting-input-actions"><Button variant="ghost" disabled={loading} onClick={() => setTranscript(demoTranscript)}>載入示範</Button><button className="icon-button" title="載入 Word、文字或錄音檔" aria-label="載入 Word、文字或錄音檔" disabled={loading} onClick={() => fileInputRef.current?.click()}>{loading && upload?.kind === 'audio' ? <LoaderCircle size={17} className="spin" /> : <Upload size={17} />}</button><input ref={fileInputRef} type="file" hidden disabled={loading} accept=".docx,.doc,.txt,.mp3,.m4a,.aac,.wav,.ogg,.flac,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/flac" onChange={(event) => { void handleFileUpload(event.target.files?.[0]); event.currentTarget.value = '' }} /></div></div>
         <Field label="會議逐字稿" hint={`目前 ${transcript.length.toLocaleString()} 字`}>
           <textarea className="large-textarea" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="貼上逐字稿，或點擊右上角載入 DOCX、TXT 或錄音檔…" />
         </Field>
-        {upload && <div className="audio-upload-status"><div className="audio-upload-header">{upload.kind === 'document' ? <FileText size={17} /> : <FileAudio size={17} />}<div><strong>{upload.name}</strong><span>{(upload.size / 1024 / 1024).toFixed(1)}MB · {upload.status === 'uploading' ? '上傳中' : upload.status === 'transcribing' ? '轉錄中' : upload.status === 'reading' ? '讀取文件中' : upload.kind === 'document' ? '文字已載入' : '轉錄完成'}</span></div><span className="audio-progress-value">{upload.progress}%</span></div><div className="audio-progress"><span style={{ width: `${upload.progress}%` }} /></div></div>}
+        {upload?.kind === 'audio' && <div className="audio-processing-status"><LoaderCircle size={17} className="spin" /><strong>處理中</strong></div>}
+        {upload?.kind === 'document' && <div className="audio-upload-status"><div className="audio-upload-header"><FileText size={17} /><div><strong>{upload.name}</strong><span>{(upload.size / 1024 / 1024).toFixed(1)}MB · {upload.status === 'reading' ? '讀取文件中' : '文字已載入'}</span></div></div></div>}
+        <p className="audio-privacy-note">檔案將傳送到 Gemini 進行轉錄，完成後會立即刪除</p>
         <div className="panel-footer"><span className="autosave-note">草稿已自動儲存在本機</span><Button loading={loading} icon={<Sparkles size={16} />} onClick={() => generate()}>整理會議內容</Button></div>
       </section>
       <section className="panel output-panel">
