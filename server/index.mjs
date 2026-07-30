@@ -1,8 +1,11 @@
 import { createServer } from 'node:http'
+import { readFile, stat } from 'node:fs/promises'
+import { extname, resolve, sep } from 'node:path'
 
 const port = Number(process.env.PORT || 8787)
 const apiKey = process.env.GEMINI_API_KEY
 const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+const distDirectory = resolve(process.cwd(), 'dist')
 const MAX_AUDIO_SIZE = 100 * 1024 * 1024
 const MAX_JSON_SIZE = 2 * 1024 * 1024
 const RATE_LIMIT = 20
@@ -28,6 +31,20 @@ const AUDIO_MIME_TYPES = new Set([
 ])
 
 const requestsByIp = new Map()
+const STATIC_CONTENT_TYPES = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+}
 
 function json(res, status, body) {
   res.writeHead(status, {
@@ -37,6 +54,34 @@ function json(res, status, body) {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   })
   res.end(JSON.stringify(body))
+}
+
+async function serveStatic(res, pathname) {
+  const requestedPath = decodeURIComponent(pathname)
+  const relativePath = requestedPath === '/' ? 'index.html' : requestedPath.replace(/^\/+/, '')
+  const candidate = resolve(distDirectory, relativePath)
+  if (candidate !== distDirectory && !candidate.startsWith(`${distDirectory}${sep}`)) {
+    return json(res, 403, { error: 'Forbidden' })
+  }
+
+  let filePath = candidate
+  try {
+    if ((await stat(filePath)).isDirectory()) filePath = resolve(filePath, 'index.html')
+  } catch {
+    filePath = resolve(distDirectory, 'index.html')
+  }
+
+  try {
+    const content = await readFile(filePath)
+    const extension = extname(filePath).toLowerCase()
+    res.writeHead(200, {
+      'Content-Type': STATIC_CONTENT_TYPES[extension] || 'application/octet-stream',
+      'Cache-Control': extension === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+    })
+    res.end(content)
+  } catch {
+    json(res, 404, { error: 'Not found' })
+  }
 }
 
 function clientIp(req) {
@@ -211,6 +256,8 @@ async function transcribeAndStructure(audio, mimeType, fileName) {
 const server = createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return json(res, 204, {})
   const pathname = new URL(req.url || '/', 'http://localhost').pathname
+  if (req.method === 'GET' && pathname === '/health') return json(res, 200, { status: 'ok' })
+  if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(res, pathname)
   if (req.method !== 'POST' || !['/api/gemini', '/api/gemini/transcribe'].includes(pathname)) {
     return json(res, 404, { error: 'Not found' })
   }
