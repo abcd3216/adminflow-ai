@@ -74,15 +74,6 @@ export async function exportMeetingPptx(result: MeetingResult) {
   await pptx.writeFile({ fileName: `${result.title}.pptx` })
 }
 
-export async function exportMailDocx(result: MailResult) {
-  const doc = new Document({ sections: [{ children: [
-    new Paragraph({ text: result.subject, heading: HeadingLevel.TITLE }),
-    body(result.greeting), ...result.paragraphs.map(body), body(result.callToAction),
-    new Paragraph({ children: [new TextRun({ text: result.closing, break: 1 })] }),
-  ] }] })
-  downloadBlob(await Packer.toBlob(doc), `${result.subject.replace(/[\\/:*?"<>|]/g, '')}.docx`)
-}
-
 export async function exportSopDocx(result: SopResult) {
   const doc = new Document({ sections: [{ children: [
     new Paragraph({ text: result.title, heading: HeadingLevel.TITLE }),

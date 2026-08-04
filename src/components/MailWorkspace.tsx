@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Copy, ExternalLink, FileText, Mail, Save, Send, Sparkles } from 'lucide-react'
+import { Copy, ExternalLink, Mail, Save, Sparkles } from 'lucide-react'
 import { aiService } from '../services/aiService'
 import type { MailResult } from '../types'
-import { downloadText, exportMailDocx, mailMarkdown } from '../utils/export'
 import { saveDocument, saveDraft, useDraft } from '../utils/storage'
 import { Button, EmptyState, Field, MockBadge, PageHeader, PrivacyNote } from './Common'
 
@@ -60,9 +59,6 @@ export function MailWorkspace({ notify }: { notify: (message: string) => void })
             <div className="email-meta"><span>主旨</span><strong>{result.subject}</strong></div>
             <div className="email-body"><p>{result.greeting}</p>{result.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}<p>{result.callToAction}</p><p className="preserve-lines">{result.closing}</p></div>
             <div className="result-actions">
-              <Button variant="secondary" icon={<Copy size={16} />} onClick={copy}>複製內容</Button>
-              <Button variant="secondary" icon={<FileText size={16} />} onClick={() => exportMailDocx(result)}>匯出 Word</Button>
-              <Button variant="ghost" icon={<Send size={16} />} onClick={() => downloadText(mailMarkdown(result), `${result.subject}.md`)}>Markdown</Button>
               <Button icon={<Save size={16} />} onClick={save}>儲存</Button>
             </div>
           </div>}
