@@ -98,48 +98,12 @@ export async function exportSopDocx(result: SopResult) {
   downloadBlob(await Packer.toBlob(doc), `${result.title}.docx`)
 }
 
-export async function exportSopPptx(result: SopResult) {
-  const pptx = setupPpt(result.title)
-  let slide = pptx.addSlide(); addTitle(slide, result.title, 'STANDARD OPERATING PROCEDURE')
-  slide.addText(result.purpose, { x: 0.8, y: 1.8, w: 11.3, h: 1, fontSize: 20, color: '334155', margin: 0.1 })
-  slide.addText(`適用角色：${result.roles.join('、')}`, { x: 0.8, y: 3.1, w: 11, h: 0.45, fontSize: 15, color: '52657A' })
-  slide = pptx.addSlide(); addTitle(slide, '流程步驟')
-  result.steps.forEach((step, index) => {
-    const y = 1.72 + index * 0.92
-    slide.addShape('roundRect', { x: 0.8, y, w: 0.55, h: 0.55, rectRadius: 0.08, fill: { color: '168C8C' }, line: { color: '168C8C' } })
-    slide.addText(String(index + 1), { x: 0.8, y: y + 0.08, w: 0.55, h: 0.25, align: 'center', fontSize: 14, bold: true, color: 'FFFFFF', margin: 0 })
-    slide.addText(step.title, { x: 1.6, y, w: 3, h: 0.35, fontSize: 17, bold: true, color: '10233F', margin: 0 })
-    slide.addText(`${step.detail}｜${step.role}`, { x: 1.6, y: y + 0.38, w: 9.9, h: 0.35, fontSize: 12, color: '52657A', margin: 0 })
-  })
-  await pptx.writeFile({ fileName: `${result.title}.pptx` })
-}
-
 export function exportReportXlsx(rows: ReportRow[], analysis: ReportAnalysis) {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), '原始資料')
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(analysis.byCategory.map((item) => ({ 分類: item.name, 金額: item.value }))), '分類統計')
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(analysis.anomalies.map((item) => ({ 資料列: item.row, 異常原因: item.reason, 值: item.value }))), '異常檢查')
   XLSX.writeFile(workbook, '每月行政支出分析.xlsx')
-}
-
-export function exportReportCsv(rows: ReportRow[]) {
-  const csv = XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(rows))
-  downloadText('\uFEFF' + csv, '每月行政支出資料.csv', 'text/csv;charset=utf-8')
-}
-
-export async function exportReportPptx(analysis: ReportAnalysis) {
-  const pptx = setupPpt('每月行政支出分析')
-  let slide = pptx.addSlide(); addTitle(slide, '每月行政支出分析')
-  slide.addText(`NT$ ${analysis.total.toLocaleString()}`, { x: 0.8, y: 1.8, w: 5, h: 0.8, fontSize: 34, bold: true, color: '168C8C', margin: 0 })
-  slide.addText('本月總支出', { x: 0.8, y: 2.65, w: 3, h: 0.35, fontSize: 13, color: '64748B' })
-  slide.addText(analysis.summary, { x: 0.8, y: 3.4, w: 11.3, h: 1.1, fontSize: 18, color: '334155', margin: 0.1 })
-  slide = pptx.addSlide(); addTitle(slide, '分類統計與建議')
-  slide.addChart(pptx.ChartType.bar, [{ name: '金額', labels: analysis.byCategory.map((item) => item.name), values: analysis.byCategory.map((item) => item.value) }], {
-    x: 0.7, y: 1.7, w: 7.3, h: 4.7, catAxisLabelFontFace: 'Microsoft JhengHei', valAxisLabelFontFace: 'Microsoft JhengHei',
-    showLegend: false, showTitle: false, chartColors: ['168C8C'], showValue: true,
-  })
-  slide.addText(analysis.suggestions.map((text) => ({ text, options: { bullet: { indent: 18 }, breakLine: true } })), { x: 8.45, y: 1.9, w: 3.8, h: 3.8, fontSize: 14, color: '334155', breakLine: true, paraSpaceAfter: 12 })
-  await pptx.writeFile({ fileName: '每月行政支出分析.pptx' })
 }
 
 export function meetingMarkdown(result: MeetingResult) {

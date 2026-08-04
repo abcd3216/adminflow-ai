@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
-import { AlertTriangle, BarChart3, Download, FileSpreadsheet, Presentation, Save, Upload } from 'lucide-react'
+import { AlertTriangle, BarChart3, Download, FileSpreadsheet, Save, Upload } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import * as XLSX from 'xlsx'
 import { demoCsv } from '../data/demoData'
 import type { FieldMap, ReportRow } from '../types'
-import { exportReportCsv, exportReportPptx, exportReportXlsx } from '../utils/export'
+import { exportReportXlsx } from '../utils/export'
 import { callGemini } from '../services/geminiClient'
 import { analyzeReport, detectFields, parseWorkbook } from '../utils/report'
 import { saveDocument } from '../utils/storage'
@@ -144,7 +144,7 @@ export function ReportWorkspace({ notify }: { notify: (message: string) => void 
           <section className="panel anomaly-panel"><div className="panel-heading"><div><span className="step-label">資料品質</span><h2>異常檢查</h2></div><span className="warning-count"><AlertTriangle size={15} /> {analysis.anomalies.length} 項</span></div>
             {analysis.anomalies.length ? <div className="table-wrap"><table><thead><tr><th>資料列</th><th>原因</th><th>內容</th></tr></thead><tbody>{analysis.anomalies.map((item, index) => <tr key={`${item.row}-${index}`}><td>第 {item.row} 列</td><td>{item.reason}</td><td>{item.value}</td></tr>)}</tbody></table></div> : <EmptyState icon={<BarChart3 size={24} />} title="未發現異常" description="目前資料品質良好。" />}
           </section>
-          <div className="floating-actions"><Button variant="ghost" icon={<Download size={16} />} onClick={() => exportReportCsv(rows)}>CSV</Button><Button variant="secondary" icon={<Download size={16} />} onClick={() => exportReportXlsx(rows, analysis)}>匯出 Excel</Button><Button variant="secondary" icon={<Presentation size={16} />} onClick={() => exportReportPptx(analysis)}>匯出 PowerPoint</Button><Button icon={<Save size={16} />} onClick={save}>儲存報表</Button></div>
+          <div className="floating-actions"><Button variant="secondary" icon={<Download size={16} />} onClick={() => exportReportXlsx(rows, analysis)}>匯出 Excel</Button><Button icon={<Save size={16} />} onClick={save}>儲存報表</Button></div>
         </> : <section className="panel"><EmptyState icon={<FileSpreadsheet size={24} />} title="請完成欄位對應" description="至少指定金額欄位後即可開始分析。" /></section>}
       </div>}
     <PrivacyNote />

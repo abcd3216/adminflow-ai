@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { CheckSquare, Download, FileText, Presentation, Save, Sparkles } from 'lucide-react'
+import { CheckSquare, FileText, Save, Sparkles } from 'lucide-react'
 import { demoSopDescription } from '../data/demoData'
 import { aiService } from '../services/aiService'
 import type { SopResult } from '../types'
-import { downloadText, exportSopDocx, exportSopPptx, sopMarkdown } from '../utils/export'
+import { exportSopDocx } from '../utils/export'
 import { saveDocument, saveDraft, useDraft } from '../utils/storage'
 import { Button, EmptyState, Field, MockBadge, PageHeader, PrivacyNote } from './Common'
 
@@ -35,7 +35,7 @@ export function SopWorkspace({ notify }: { notify: (message: string) => void }) 
         <div className="panel-footer"><span className="autosave-note">草稿已自動儲存在本機</span><Button loading={loading} icon={<Sparkles size={16} />} onClick={generate}>產生標準 SOP</Button></div>
       </section>
       <section className="panel output-panel">
-        <div className="panel-heading"><div><span className="step-label">輸出</span><h2>標準作業程序</h2></div>{result && <div className="compact-actions"><button title="Word" onClick={() => exportSopDocx(result)}><FileText size={17} /></button><button title="PowerPoint" onClick={() => exportSopPptx(result)}><Presentation size={17} /></button><button title="Markdown" onClick={() => downloadText(sopMarkdown(result), `${result.title}.md`)}><Download size={17} /></button></div>}</div>
+        <div className="panel-heading"><div><span className="step-label">輸出</span><h2>標準作業程序</h2></div></div>
         {!result ? <EmptyState icon={<CheckSquare size={25} />} title="等待整理流程" description="AI 將把口語描述轉為可執行、可檢核的 SOP。" /> :
           <div className="sop-result">
             <div className="result-title-row"><div><h3>{result.title}</h3><span>{result.scope}</span></div></div>
@@ -44,7 +44,7 @@ export function SopWorkspace({ notify }: { notify: (message: string) => void }) 
             <div className="sop-steps">{result.steps.map((step, index) => <div className="sop-step" key={step.title}><span>{index + 1}</span><div><strong>{step.title}</strong><p>{step.detail}</p><small>負責：{step.role}</small></div></div>)}</div>
             <div className="caution-box"><strong>注意事項</strong><ul>{result.cautions.map((item) => <li key={item}>{item}</li>)}</ul></div>
             <div className="result-block"><p className="result-label">執行檢核表</p><div className="checklist">{result.checklist.map((item, index) => <label key={item}><input type="checkbox" checked={checked.includes(index)} onChange={() => setChecked(checked.includes(index) ? checked.filter((value) => value !== index) : [...checked, index])} /><span>{item}</span></label>)}</div></div>
-            <div className="result-actions"><Button variant="secondary" icon={<FileText size={16} />} onClick={() => exportSopDocx(result)}>匯出 Word</Button><Button variant="secondary" icon={<Presentation size={16} />} onClick={() => exportSopPptx(result)}>匯出 PowerPoint</Button><Button icon={<Save size={16} />} onClick={save}>儲存 SOP</Button></div>
+            <div className="result-actions"><Button variant="secondary" icon={<FileText size={16} />} onClick={() => exportSopDocx(result)}>匯出 Word</Button><Button icon={<Save size={16} />} onClick={save}>儲存 SOP</Button></div>
           </div>}
       </section>
     </div>
