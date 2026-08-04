@@ -5,6 +5,7 @@ import { aiService } from '../services/aiService'
 import { transcribeMeetingAudio } from '../services/geminiClient'
 import type { MeetingResult } from '../types'
 import { exportMeetingDocx } from '../utils/export'
+import { formatLocalDateTime, normalizeMeetingDateTime } from '../utils/meetingTime'
 import { saveDocument, saveDraft, useDraft } from '../utils/storage'
 import { Button, EmptyState, Field, MockBadge, PageHeader, PrivacyNote } from './Common'
 
@@ -53,7 +54,11 @@ export function MeetingWorkspace({ notify }: { notify: (message: string) => void
   const generate = async (source = transcript) => {
     if (!source.trim()) return notify('請先輸入會議逐字稿')
     setLoading(true)
-    try { setResult(await aiService.generateMeeting(source)); notify('會議內容已整理完成') }
+    try {
+      const localDateTime = formatLocalDateTime()
+      setResult(await aiService.generateMeeting(source, localDateTime))
+      notify('會議內容已整理完成')
+    }
     finally { setLoading(false) }
   }
 
@@ -68,10 +73,11 @@ export function MeetingWorkspace({ notify }: { notify: (message: string) => void
     setResult(null)
     setUpload({ kind: 'audio', name: file.name, size: file.size, status: 'processing' })
     try {
-      const generated = await transcribeMeetingAudio<AudioMeetingResponse>(file, mimeType)
+      const localDateTime = formatLocalDateTime()
+      const generated = await transcribeMeetingAudio<AudioMeetingResponse>(file, mimeType, localDateTime)
       if (!generated.transcript?.trim() || !generated.meeting) throw new Error('Gemini 未回傳完整的轉錄結果')
       setTranscript(generated.transcript.trim())
-      setResult(generated.meeting)
+      setResult({ ...generated.meeting, date: normalizeMeetingDateTime(generated.meeting.date, localDateTime) })
       notify('錄音已完成轉錄與會議整理')
     } catch (error) {
       notify(error instanceof Error ? `錄音處理失敗：${error.message}` : '錄音處理失敗，請稍後再試')

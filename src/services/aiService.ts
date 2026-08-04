@@ -3,7 +3,7 @@ import { HybridMeetingService } from './hybridMeetingService'
 import { ApiAiService } from './apiAiService'
 
 export interface AiService {
-  generateMeeting(transcript: string): Promise<MeetingResult>
+  generateMeeting(transcript: string, localDateTime?: string): Promise<MeetingResult>
   generateMail(input: { context: string; audience: string; purpose: string; tone: string }): Promise<MailResult>
   generateSop(input: { title: string; description: string; roles: string }): Promise<SopResult>
 }

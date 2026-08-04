@@ -4,12 +4,13 @@ export async function callGemini<T>(task: 'meeting' | 'mail' | 'sop' | 'excel' |
   return response.json() as Promise<T>
 }
 
-export async function transcribeMeetingAudio<T>(file: File, mimeType: string): Promise<T> {
+export async function transcribeMeetingAudio<T>(file: File, mimeType: string, localDateTime: string): Promise<T> {
   const response = await fetch('/api/gemini/transcribe', {
     method: 'POST',
     headers: {
       'Content-Type': mimeType,
       'X-File-Name': encodeURIComponent(file.name),
+      'X-Local-Date-Time': localDateTime,
     },
     body: file,
   })

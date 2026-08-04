@@ -4,9 +4,9 @@ import type { MeetingResult, MailResult, SopResult } from '../types'
 const delay = (ms = 650) => new Promise((resolve) => setTimeout(resolve, ms))
 const uniq = <T,>(items: T[]) => [...new Set(items)]
 
-function extractDate(text: string) {
+function extractDate(text: string, localDateTime: string) {
   const match = text.match(/(20\d{2})[年\/-](\d{1,2})[月\/-](\d{1,2})日?/)
-  return match ? `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}` : new Date().toISOString().slice(0, 10)
+  return match ? `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')} ${localDateTime.slice(11, 16)}` : localDateTime
 }
 
 function normalizeDueDate(raw: string | undefined) {
@@ -17,7 +17,8 @@ function normalizeDueDate(raw: string | undefined) {
 }
 
 export class MockAiService implements AiService {
-  async generateMeeting(transcript: string): Promise<MeetingResult> {
+  async generateMeeting(transcript: string, localDateTime = ''): Promise<MeetingResult> {
+    const generatedAt = localDateTime || new Date().toLocaleString('sv-SE', { hour12: false }).slice(0, 16)
     await delay()
     const lines = transcript.split(/\n|。/).map((line) => line.trim()).filter(Boolean)
     const decisions = lines
@@ -51,7 +52,7 @@ export class MockAiService implements AiService {
     ]).filter(Boolean))
     return {
       title: '每月行政營運會議紀錄',
-      date: extractDate(transcript),
+      date: extractDate(transcript, generatedAt),
       summary: `本次會議聚焦於${topics.length ? topics.join('、') : '行政例行事項'}，共整理 ${Math.max(decisions.length, 1)} 項決議與 ${Math.max(tasks.length, 1)} 項後續任務。各負責人應依期限完成並回報進度。`,
       decisions: decisions.length ? decisions : ['會議內容已完成初步整理，決議細節待與會者確認。'],
       actionItems: tasks.length ? tasks : [{ task: '確認會議紀錄內容', owner: '待確認', dueDate: '待確認', status: '待處理' }],

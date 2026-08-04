@@ -12,7 +12,7 @@ const RATE_LIMIT = 20
 const RATE_WINDOW_MS = 60 * 60 * 1000
 
 const schemas = {
-  meeting: '{"title":"string","date":"YYYY-MM-DD","summary":"string","decisions":["string"],"actionItems":[{"task":"string","owner":"string","collaborators":["string"],"dueDate":"string","status":"待處理|進行中|已完成"}]}',
+  meeting: '{"title":"string","date":"YYYY-MM-DD HH:mm","summary":"string","decisions":["string"],"actionItems":[{"task":"string","owner":"string","collaborators":["string"],"dueDate":"string","status":"待處理|進行中|已完成"}]}',
   mail: '{"subject":"string","greeting":"string","paragraphs":["string"],"callToAction":"string","closing":"string"}',
   sop: '{"title":"string","purpose":"string","scope":"string","roles":["string"],"steps":[{"title":"string","detail":"string","role":"string"}],"cautions":["string"],"checklist":["string"]}',
   excel: '{"date":"header or empty","department":"header or empty","category":"header or empty","item":"header or empty","amount":"header or empty"}',
@@ -50,7 +50,7 @@ function json(res, status, body) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, X-File-Name',
+    'Access-Control-Allow-Headers': 'Content-Type, X-File-Name, X-Local-Date-Time',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   })
   res.end(JSON.stringify(body))
@@ -127,7 +127,7 @@ function readBody(req, limit) {
 
 function prompt(task, input) {
   const instruction = task === 'meeting'
-    ? '分析會議逐字稿。務必把每個明確任務拆成獨立 actionItems，從句子中找出負責人、協作者與期限；不要把整段對話當成任務。每個決議事項的文字必須包含「負責人：姓名」；每個 actionItem 必須填入具體 task、owner、dueDate、status，不能使用待確認，除非原文真的沒有提到。請將「Alex 負責資料庫 ETL」解析成 task=資料庫 ETL、owner=Alex。'
+    ? '分析會議逐字稿。date 一律使用 YYYY-MM-DD HH:mm；逐字稿明確提到會議日期或時間時優先採用，未提到的日期或時間部分使用輸入的 localDateTime 補足。務必把每個明確任務拆成獨立 actionItems，從句子中找出負責人、協作者與期限；不要把整段對話當成任務。每個決議事項的文字必須包含「負責人：姓名」；每個 actionItem 必須填入具體 task、owner、dueDate、status，不能使用待確認，除非原文真的沒有提到。請將「Alex 負責資料庫 ETL」解析成 task=資料庫 ETL、owner=Alex。'
     : task === 'excelCategories'
       ? '根據每筆資料的支出說明與執行單位推測分類。若無法判斷請使用「待分類」，並提供 0 到 1 的信心分數。'
       : task === 'excel'
@@ -136,6 +136,14 @@ function prompt(task, input) {
           ? '將自由格式流程描述整理成角色、步驟、注意事項與檢核表。'
           : '產生行政 Email 或公文內容，維持清楚、正式且可直接使用。'
   return `${instruction}\n請嚴格依照這個 JSON schema 回傳，不要 Markdown：${schemas[task]}\n\n輸入：\n${JSON.stringify(input)}`
+}
+
+function normalizeMeetingDate(output, localDateTime) {
+  const fallback = /^20\d{2}-\d{2}-\d{2} \d{2}:\d{2}$/.test(localDateTime || '') ? localDateTime : ''
+  const match = String(output?.date || '').match(/^(20\d{2})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/)
+  if (!match) return { ...output, date: fallback }
+  const time = match[4] && match[5] ? `${match[4]}:${match[5]}` : fallback.slice(11, 16)
+  return { ...output, date: `${match[1]}-${match[2]}-${match[3]} ${time}` }
 }
 
 function parseGeminiJson(data) {
@@ -215,7 +223,7 @@ async function deleteGeminiFile(fileName) {
   if (!response.ok && response.status !== 404) throw new Error('Gemini 暫存錄音檔刪除失敗')
 }
 
-async function transcribeAndStructure(audio, mimeType, fileName) {
+async function transcribeAndStructure(audio, mimeType, fileName, localDateTime) {
   let uploadedFile
   let output
   let processError
@@ -228,6 +236,7 @@ async function transcribeAndStructure(audio, mimeType, fileName) {
     const instruction = [
       '請先逐字轉錄這段會議錄音，再整理為結構化會議紀錄。',
       '逐字稿請保留可辨識的說話者、原意、專有名詞、數字與日期，不要自行省略任務內容。',
+      `meeting.date 一律使用 YYYY-MM-DD HH:mm；錄音明確提到會議日期或時間時優先，未提到的部分使用本機處理時間 ${localDateTime} 補足。`,
       '每個明確任務都要拆成獨立 actionItems，owner、collaborators、dueDate、status 必須依錄音填寫；錄音未提到才可填「待確認」。',
       '每個決議事項必須是清楚的決策結果，並在文字中包含「負責人：姓名」。',
       `請嚴格依照這個 JSON schema 回傳，不要 Markdown：${audioSchema}`,
@@ -250,7 +259,7 @@ async function transcribeAndStructure(audio, mimeType, fileName) {
 
   if (deleteError) throw deleteError
   if (processError) throw processError
-  return output
+  return { ...output, meeting: normalizeMeetingDate(output.meeting, localDateTime) }
 }
 
 const server = createServer(async (req, res) => {
@@ -269,16 +278,19 @@ const server = createServer(async (req, res) => {
       const mimeType = String(req.headers['content-type'] || '').split(';')[0].toLowerCase()
       const encodedName = String(req.headers['x-file-name'] || 'meeting-audio')
       const fileName = decodeURIComponent(encodedName)
+      const localDateTime = String(req.headers['x-local-date-time'] || '')
+      if (!/^20\d{2}-\d{2}-\d{2} \d{2}:\d{2}$/.test(localDateTime)) return json(res, 400, { error: '本機時間格式不正確' })
       if (!AUDIO_MIME_TYPES.has(mimeType)) return json(res, 415, { error: '不支援此錄音格式' })
       const audio = await readBody(req, MAX_AUDIO_SIZE)
       if (!audio.length) return json(res, 400, { error: '錄音檔案是空的' })
-      return json(res, 200, await transcribeAndStructure(audio, mimeType, fileName))
+      return json(res, 200, await transcribeAndStructure(audio, mimeType, fileName, localDateTime))
     }
 
     const rawBody = await readBody(req, MAX_JSON_SIZE)
     const { task, input } = JSON.parse(rawBody.toString('utf8'))
     if (!schemas[task]) return json(res, 400, { error: 'Unsupported task' })
-    return json(res, 200, await geminiJsonRequest([{ text: prompt(task, input) }]))
+    const output = await geminiJsonRequest([{ text: prompt(task, input) }])
+    return json(res, 200, task === 'meeting' ? normalizeMeetingDate(output, input?.localDateTime) : output)
   } catch (error) {
     return json(res, error?.status || 500, { error: error instanceof Error ? error.message : 'Invalid request' })
   }
